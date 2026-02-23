@@ -773,7 +773,7 @@ def add_str(str1, str2):
 
 
 
-# NUEVO ENDPOINT (TIMESCALE)
+# endpoint timescale
 
 def hourly_stats(request, **kwargs):
     measureParam = kwargs.get("measure", None)
@@ -788,7 +788,6 @@ def hourly_stats(request, **kwargs):
 
     start, end = get_daterange(request)
 
-    # En Timescale, Data.time está en microsegundos
     start_ts = int(start.timestamp() * 1_000_000)
     end_ts = int(end.timestamp() * 1_000_000)
 
