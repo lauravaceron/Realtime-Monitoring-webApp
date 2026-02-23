@@ -39,7 +39,7 @@ from .models import (
 from realtimeMonitoring import settings
 import dateutil.relativedelta
 from django.db.models import Avg, Max, Min, Sum
-
+from django.db.models.functions import TruncHour
 
 class DashboardView(TemplateView):
     template_name = "index.html"
@@ -806,10 +806,7 @@ def hourly_stats(request, **kwargs):
             min=Min("min_value"),
             max=Max("max_value"),
             avg=Avg("avg_value"),
-            # Si tu modelo tiene "length" (cantidad de muestras dentro del blob), esto representa n real:
             n=Sum("length"),
-            # Si te da error porque no existe "length", cambia la línea anterior por:
-            # n=Count("id"),
         )
         .order_by("hour")
     )
