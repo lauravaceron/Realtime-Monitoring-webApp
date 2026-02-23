@@ -770,3 +770,65 @@ Filtro para formatear datos en los templates
 @register.filter
 def add_str(str1, str2):
     return str1 + str2
+
+
+
+# NUEVO ENDPOINT (TIMESCALE)
+
+def hourly_stats(request, **kwargs):
+    measureParam = kwargs.get("measure", None)
+
+    measurements = Measurement.objects.all()
+    if measureParam is not None:
+        selectedMeasure = Measurement.objects.filter(name=measureParam)[0]
+    elif measurements.count() > 0:
+        selectedMeasure = measurements[0]
+    else:
+        return JsonResponse({"error": "No measurements found"}, status=400)
+
+    start, end = get_daterange(request)
+
+    # En Timescale, Data.time está en microsegundos
+    start_ts = int(start.timestamp() * 1_000_000)
+    end_ts = int(end.timestamp() * 1_000_000)
+
+    qs = (
+        Data.objects
+        .filter(
+            measurement__name=selectedMeasure.name,
+            time__gte=start_ts,
+            time__lte=end_ts,
+        )
+        # base_time representa el inicio de la hora
+        .annotate(hour=TruncHour("base_time"))
+        .values("hour")
+        .annotate(
+            min=Min("min_value"),
+            max=Max("max_value"),
+            avg=Avg("avg_value"),
+            # Si tu modelo tiene "length" (cantidad de muestras dentro del blob), esto representa n real:
+            n=Sum("length"),
+            # Si te da error porque no existe "length", cambia la línea anterior por:
+            # n=Count("id"),
+        )
+        .order_by("hour")
+    )
+
+    points = []
+    for row in qs:
+        hour_dt = row["hour"]
+        t_ms = int(hour_dt.timestamp() * 1000) if hour_dt else None
+        points.append({
+            "t": t_ms,
+            "min": row["min"] if row["min"] is not None else 0,
+            "max": row["max"] if row["max"] is not None else 0,
+            "avg": round(row["avg"], 2) if row["avg"] is not None else 0,
+            "n": int(row["n"]) if row["n"] is not None else 0,
+        })
+
+    return JsonResponse({
+        "measure": selectedMeasure.name,
+        "from": int(start.timestamp() * 1000),
+        "to": int(end.timestamp() * 1000),
+        "points": points,
+    })
