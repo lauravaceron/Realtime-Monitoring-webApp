@@ -676,13 +676,10 @@ def add_str(str1, str2):
     return str1 + str2
 
 
-# NUEVO ENDPOINT (POSTGRES)
-
-
+# POSTGRES
 def hourly_stats(request, **kwargs):
     measureParam = kwargs.get("measure", None)
 
-    # Selección de medida (igual idea que mapJson)
     measurements = Measurement.objects.all()
     if measureParam is not None:
         selectedMeasure = Measurement.objects.filter(name=measureParam)[0]
@@ -691,10 +688,8 @@ def hourly_stats(request, **kwargs):
     else:
         return JsonResponse({"error": "No measurements found"}, status=400)
 
-    # Reutiliza el mismo parseo de fechas del proyecto (from/to vienen en milisegundos)
     start, end = get_daterange(request)
 
-    # Consulta: agrupar por hora y calcular agregados sobre "value"
     qs = (
         Data.objects
         .filter(
@@ -708,7 +703,7 @@ def hourly_stats(request, **kwargs):
             min=Min("value"),
             max=Max("value"),
             avg=Avg("value"),
-            n=Count("id"),
+            n=Count("time"),
         )
         .order_by("hour")
     )
@@ -719,10 +714,10 @@ def hourly_stats(request, **kwargs):
         t_ms = int(hour_dt.timestamp() * 1000) if hour_dt else None
         points.append({
             "t": t_ms,
-            "min": row["min"] if row["min"] is not None else 0,
-            "max": row["max"] if row["max"] is not None else 0,
-            "avg": round(row["avg"], 2) if row["avg"] is not None else 0,
-            "n": row["n"] if row["n"] is not None else 0,
+            "min": row["min"] or 0,
+            "max": row["max"] or 0,
+            "avg": round(row["avg"], 2) if row["avg"] else 0,
+            "n": row["n"] or 0,
         })
 
     return JsonResponse({
